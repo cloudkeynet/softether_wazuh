@@ -171,8 +171,7 @@ Resources:
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD HubCreate "${NameBurtualHubVPN}" /PASSWORD:"${SoftetherPassword}"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD BridgeCreate ${NameBurtualHubVPN} /DEVICE:"eth1"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD BridgeCreate ${NameBurtualHubVPN} /DEVICE:"eth0"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatDisable
+          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatEnable
           # --- Send cfn-signal (REPLACE 'MyWaitHandle' with your WaitHandle logical name) ---
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource SoftetherInstance --region ${AWS::Region}
       Tags:

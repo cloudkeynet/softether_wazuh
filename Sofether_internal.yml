@@ -109,11 +109,10 @@ Resources:
           #!/bin/bash
           sudo su
           sudo yum update -y
-          yum -y install epel-release
           yum -y groupinstall "Development Tools"
           # softether version 4.43
           cd /usr/local/
-          wget https://www.softether-download.com/files/softether/v4.43-9799-beta-2023.08.31-tree/Linux/SoftEther_VPN_Server/64bit_-_Intel_x64_or_AMD64/softether-vpnserver-v4.43-9799-beta-2023.08.31-linux-x64-64bit.tar.gz
+          wget https://github.com/SoftEtherVPN/SoftEtherVPN_Stable/releases/download/v4.44-9807-rtm/softether-vpnserver-v4.44-9807-rtm-2025.04.16-linux-x64-64bit.tar.gz
           tar xvf softether-vpnserver-*
           rm -rf softether-vpnserver-*
           cd vpnserver && make
@@ -157,15 +156,15 @@ Resources:
           baseurl=https://packages.wazuh.com/4.x/yum/
           protect=1
           EOF
-          WAZUH_MANAGER="${WazuhNetworkInterface1.PrimaryPrivateIpAddress}" WAZUH_AGENT_NAME="Softether" yum install wazuh-agent -y
+          sudo WAZUH_MANAGER=$WAZUH_MANAGER WAZUH_AGENT_NAME=$WAZUH_AGENT_NAME yum install wazuh-agent -y
           sed -i '209i\
             <localfile>\
               <location>/usr/local/vpnserver/security_log/${NameBurtualHubVPN}/sec_20%y%m%d.log</location>\
               <log_format>syslog</log_format>\
             </localfile>' /var/ossec/etc/ossec.conf
-          systemctl daemon-reload
-          systemctl enable wazuh-agent
-          systemctl start wazuh-agent
+          sudo systemctl daemon-reload
+          sudo systemctl enable wazuh-agent
+          sudo systemctl start wazuh-agent
           sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repos
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"" /CMD ServerPasswordSet ${SoftetherPassword}
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB DEFAULT /CMD HubDelete DEFAULT
@@ -173,9 +172,14 @@ Resources:
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD BridgeCreate ${NameBurtualHubVPN} /DEVICE:"eth1"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatEnable
+          # --- Send cfn-signal (REPLACE 'MyWaitHandle' with your WaitHandle logical name) ---
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource SoftetherInstance --region ${AWS::Region}
       Tags:
         - Key: Name
           Value: Softether
+    CreationPolicy:
+        ResourceSignal:
+          Timeout: PT10M
   EIP:
     Type: AWS::EC2::EIP
     Properties:
@@ -419,6 +423,8 @@ Resources:
       Tags:
         - Key: Name
           Value: Wazuh
+
+       
       
 Outputs:
   URLWazuh:

@@ -4,9 +4,9 @@ Description: Deploy Softether on Amazon EC2
 Parameters:
   CertificateArn:
     Type: String
-    Description: "The ARN of the ACM certificate for TLS termination"
-  LatestAmiId :
-    Type : 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
+    Description: The ARN of the ACM certificate for TLS termination
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
     Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-ebs
   NameBurtualHubVPN:
     Type: String
@@ -32,25 +32,29 @@ Parameters:
     Type: AWS::EC2::Subnet::Id
     Description: Subnet where the ALB will be deployed need to be Public two.
   SoftetherPassword:
-    Description: "Password for Softether. Must be between 8 and 64 characters and contain at least one uppercase letter, one lowercase letter, one number, and one of the following symbols: .*+?-"
+    Description: 'Password for Softether. Must be between 8 and 64 characters and
+      contain at least one uppercase letter, one lowercase letter, one number,
+      and one of the following symbols: .*+?-'
     Type: String
     NoEcho: true
     MinLength: 8
     MaxLength: 64
   WazuhPassword:
-    Description: "Password for Wazuh. Must be between 8 and 64 characters and contain at least one uppercase letter, one lowercase letter, one number, and one of the following symbols: .*+?-"
+    Description: 'Password for Wazuh. Must be between 8 and 64 characters and
+      contain at least one uppercase letter, one lowercase letter, one number,
+      and one of the following symbols: .*+?-'
     Type: String
     NoEcho: true
     MinLength: 8
     MaxLength: 64
-    
+
   VPCId:
     Type: AWS::EC2::VPC::Id
     Description: VPC where the EC2 instance will be deployed
 
 Resources:
   SoftetherInstanceRole:
-    Type: 'AWS::IAM::Role'
+    Type: AWS::IAM::Role
     Properties:
       RoleName: SoftetherRole
       AssumeRolePolicyDocument:
@@ -67,34 +71,34 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - "logs:CreateLogGroup"
-                  - "logs:CreateLogStream"
-                  - "logs:PutLogEvents"
-                  - "ssm:*"
-                  - "ssmmessages:*"
-                  - "ec2messages:*"
-                  - 'cloudformation:*'
-                Resource: "*"
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - ssm:*
+                  - ssmmessages:*
+                  - ec2messages:*
+                  - cloudformation:*
+                Resource: '*'
   SoftetherInstanceProfile:
-    Type: 'AWS::IAM::InstanceProfile'
+    Type: AWS::IAM::InstanceProfile
     Properties:
       InstanceProfileName: SoftetherInstanceProfile
       Roles:
         - !Ref SoftetherInstanceRole
 
   SoftetherNetworkInterface1:
-    Type: "AWS::EC2::NetworkInterface"
+    Type: AWS::EC2::NetworkInterface
     Properties:
-      Description: "Additional Network Interface 1"
+      Description: Additional Network Interface 1
       GroupSet:
         - !Ref SecurityGroup # Security Group ID
       SubnetId: !Ref SubnetIdPrivateSoftether # Subnet ID
       Tags:
         - Key: Name
-          Value: "Softether"
+          Value: Softether
   SoftetherInstance:
-    Type: 'AWS::EC2::Instance'
-    DependsOn: 
+    Type: AWS::EC2::Instance
+    DependsOn:
       - SoftetherNetworkInterface1
       - WazuhInstance
     Properties:
@@ -104,21 +108,19 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 50  # Size of the EBS volume (in GB)
-            Encrypted: true  # Enables encryption for the EBS volume
-            VolumeType: gp3  # General Purpose SSD
+            VolumeSize: 50 # Size of the EBS volume (in GB)
+            Encrypted: true # Enables encryption for the EBS volume
+            VolumeType: gp3 # General Purpose SSD
       NetworkInterfaces:
-        - 
-          DeviceIndex: 1
+        - DeviceIndex: 1
           GroupSet:
             - !Ref SecurityGroup # Security Group ID
           SubnetId: !Ref SubnetIdPrivateSoftether # Subnet ID of the primary interface
-        - 
-          DeviceIndex: 0
+        - DeviceIndex: 0
           NetworkInterfaceId: !Ref SoftetherNetworkInterface1
 
-      UserData:
-        Fn::Base64: !Sub |
+      UserData: !Base64
+        Fn::Sub: |
           #!/bin/bash
           sudo su
           sudo yum update -y
@@ -159,7 +161,7 @@ Resources:
           EOF
           chmod 755 /etc/init.d/vpnserver
           /etc/init.d/vpnserver start
-          chkconfig --add vpnserver 
+          chkconfig --add vpnserver
           rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
           cat << 'EOF' > /etc/yum.repos.d/wazuh.repo
           [wazuh]
@@ -199,7 +201,7 @@ Resources:
   #    AllocationId: !GetAtt EIP.AllocationId
   #    NetworkInterfaceId: !Ref SoftetherNetworkInterface1
   SecurityGroup:
-    Type: 'AWS::EC2::SecurityGroup'
+    Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Ports for Softether connection
       VpcId: !Ref VPCId
@@ -254,22 +256,22 @@ Resources:
           CidrIp: 0.0.0.0/0
 
   InstanceSecurityGroupIngress:
-    Type: 'AWS::EC2::SecurityGroupIngress'
+    Type: AWS::EC2::SecurityGroupIngress
     Properties:
       GroupId: !Ref SecurityGroup
       IpProtocol: -1
       SourceSecurityGroupId: !Ref SecurityGroup
-# Wazuh
+  # Wazuh
   WazuhNetworkInterface1:
-    Type: "AWS::EC2::NetworkInterface"
+    Type: AWS::EC2::NetworkInterface
     Properties:
-      Description: "Additional Network Interface 1"
+      Description: Additional Network Interface 1
       GroupSet:
         - !Ref SecurityGroup # Security Group ID
       SubnetId: !Ref SubnetIdPrivateWazuh # Subnet ID
       Tags:
         - Key: Name
-          Value: "Softether"
+          Value: Softether
   WazuhSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -289,7 +291,7 @@ Resources:
           CidrIp: 0.0.0.0/0
 
   WazuhInstance:
-    Type: 'AWS::EC2::Instance'
+    Type: AWS::EC2::Instance
     Properties:
       ImageId: !Ref LatestAmiId
       InstanceType: !Ref EC2InstanceType
@@ -297,16 +299,15 @@ Resources:
       BlockDeviceMappings:
         - DeviceName: /dev/xvda
           Ebs:
-            VolumeSize: 100  # Size of the EBS volume (in GB)
-            Encrypted: true  # Enables encryption for the EBS volume
-            VolumeType: gp3  # General Purpose SSD
+            VolumeSize: 100 # Size of the EBS volume (in GB)
+            Encrypted: true # Enables encryption for the EBS volume
+            VolumeType: gp3 # General Purpose SSD
       NetworkInterfaces:
-        -
-          DeviceIndex: 0
+        - DeviceIndex: 0
           NetworkInterfaceId: !Ref WazuhNetworkInterface1
 
-      UserData:
-        Fn::Base64: !Sub |
+      UserData: !Base64
+        Fn::Sub: |
           #!/bin/bash
           sudo su
           sudo yum update -y
@@ -474,130 +475,130 @@ Resources:
           Value: Wazuh
   # Create a Network Load Balancer
   NLB:
-    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
     Properties:
-      Name: "VPNNetworkLoadBalancer"
-      Scheme: "internet-facing"
-      Type: "network"
+      Name: VPNNetworkLoadBalancer
+      Scheme: internet-facing
+      Type: network
       Subnets:
         - !Ref SubnetIdPublicOne
         - !Ref SubnetIdPublicTwo
       SecurityGroups:
         - !Ref NLBSecurityGroup
       LoadBalancerAttributes:
-        - Key: "deletion_protection.enabled"
-          Value: "false"
+        - Key: deletion_protection.enabled
+          Value: 'false'
   # 443 Target Group for NLB with TLS
   443NLBTargetGroup:
-    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: "443VPNNLBTargetGroup"
+      Name: 443VPNNLBTargetGroup
       HealthCheckIntervalSeconds: 30
-      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckProtocol: TCP # Use TLS for health checks
       HealthCheckPort: 443
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
       UnhealthyThresholdCount: 3
-      Port: 443  # Target group listens on port 443 (TLS backend)
-      Protocol: TLS  # TLS protocol for communication between NLB and backend
+      Port: 443 # Target group listens on port 443 (TLS backend)
+      Protocol: TLS # TLS protocol for communication between NLB and backend
       VpcId: !Ref VPCId
       Targets:
         - Id: !Ref SoftetherInstance
-          Port: 443  # Target EC2 instance or service accepting TLS traffic
+          Port: 443 # Target EC2 instance or service accepting TLS traffic
   # 443 Listener for NLB with TLS termination
   443NLBListener:
-    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref 443NLBTargetGroup
       LoadBalancerArn: !Ref NLB
-      Port: 443  # TLS listener on port 443
-      Protocol: TLS  # Using TLS for secure communication
+      Port: 443 # TLS listener on port 443
+      Protocol: TLS # Using TLS for secure communication
       Certificates:
-        - CertificateArn: !Ref CertificateArn  # Use parameter for ACM certificate ARN
+        - CertificateArn: !Ref CertificateArn # Use parameter for ACM certificate ARN
   # 500 Target Group for NLB with TLS
   500NLBTargetGroup:
-    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: "500VPNNLBTargetGroup"
+      Name: 500VPNNLBTargetGroup
       HealthCheckIntervalSeconds: 30
-      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckProtocol: TCP # Use TLS for health checks
       HealthCheckPort: 443
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
       UnhealthyThresholdCount: 3
-      Port: 500  # Target group listens on port 553
-      Protocol: UDP  # UDP protocol for communication between NLB and backend
+      Port: 500 # Target group listens on port 553
+      Protocol: UDP # UDP protocol for communication between NLB and backend
       VpcId: !Ref VPCId
       Targets:
         - Id: !Ref SoftetherInstance
-          Port: 500  # Target EC2 instance or service accepting TLS traffic
+          Port: 500 # Target EC2 instance or service accepting TLS traffic
   # 500 Listener for NLB with TLS termination
   500NLBListener:
-    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref 500NLBTargetGroup
       LoadBalancerArn: !Ref NLB
-      Port: 500  # TLS listener on port 443
-      Protocol: UDP  # Using TLS for secure communication
+      Port: 500 # TLS listener on port 443
+      Protocol: UDP # Using TLS for secure communication
   # 4500 Target Group for NLB with TLS
   4500NLBTargetGroup:
-    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: "4500VPNNLBTargetGroup"
+      Name: 4500VPNNLBTargetGroup
       HealthCheckIntervalSeconds: 30
-      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckProtocol: TCP # Use TLS for health checks
       HealthCheckPort: 443
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
       UnhealthyThresholdCount: 3
-      Port: 4500  # Target group listens on port 4500
-      Protocol: UDP  # UDP protocol for communication between NLB and backend
+      Port: 4500 # Target group listens on port 4500
+      Protocol: UDP # UDP protocol for communication between NLB and backend
       VpcId: !Ref VPCId
       Targets:
         - Id: !Ref SoftetherInstance
-          Port: 4500  # Target EC2 instance or service accepting TLS traffic
+          Port: 4500 # Target EC2 instance or service accepting TLS traffic
   # 4500 Listener for NLB with TLS termination
   4500NLBListener:
-    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref 4500NLBTargetGroup
       LoadBalancerArn: !Ref NLB
-      Port: 4500  # TLS listener on port 443
-      Protocol: UDP  # Using TLS for secure communication
+      Port: 4500 # TLS listener on port 443
+      Protocol: UDP # Using TLS for secure communication
   # 1701 Target Group for NLB with TLS
   1701NLBTargetGroup:
-    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
     Properties:
-      Name: "1701VPNNLBTargetGroup"
+      Name: 1701VPNNLBTargetGroup
       HealthCheckIntervalSeconds: 30
-      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckProtocol: TCP # Use TLS for health checks
       HealthCheckPort: 443
       HealthCheckTimeoutSeconds: 5
       HealthyThresholdCount: 3
       UnhealthyThresholdCount: 3
-      Port: 1701  # Target group listens on port 4500
-      Protocol: UDP  # UDP protocol for communication between NLB and backend
+      Port: 1701 # Target group listens on port 4500
+      Protocol: UDP # UDP protocol for communication between NLB and backend
       VpcId: !Ref VPCId
       Targets:
         - Id: !Ref SoftetherInstance
-          Port: 1701  # Target EC2 instance or service accepting TLS traffic
+          Port: 1701 # Target EC2 instance or service accepting TLS traffic
   # 4500 Listener for NLB with TLS termination
   1701NLBListener:
-    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Type: AWS::ElasticLoadBalancingV2::Listener
     Properties:
       DefaultActions:
         - Type: forward
           TargetGroupArn: !Ref 1701NLBTargetGroup
       LoadBalancerArn: !Ref NLB
-      Port: 1701  # TLS listener on port 1701
-      Protocol: UDP  # Using TLS for secure communication
+      Port: 1701 # TLS listener on port 1701
+      Protocol: UDP # Using TLS for secure communication
 Outputs:
   URLWazuh:
     Description: Url of Wazuh
-    Value: !Sub "https://${WazuhInstance.PrivateIp}"
+    Value: !Sub https://${WazuhInstance.PrivateIp}

@@ -2,6 +2,9 @@ AWSTemplateFormatVersion: '2010-09-09'
 Description: Deploy Softether on Amazon EC2
 
 Parameters:
+  CertificateArn:
+    Type: String
+    Description: "The ARN of the ACM certificate for TLS termination"
   LatestAmiId :
     Type : 'AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>'
     Default: /aws/service/ami-amazon-linux-latest/amzn2-ami-hvm-x86_64-ebs
@@ -16,26 +19,30 @@ Parameters:
     Type: String
     NoEcho: true
     Description: Ipsec Pre-shared Key.
-  SubnetIdPublicSoftether:
+  SubnetIdPrivateSoftether:
     Type: AWS::EC2::Subnet::Id
     Description: Subnet where the Softether will be deployed need to be Public.
   SubnetIdPrivateWazuh:
     Type: AWS::EC2::Subnet::Id
     Description: Subnet where the Wazuh will be deployed need to be Private.
+  SubnetIdPublicOne:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet where the ALB will be deployed need to be Public one.
+  SubnetIdPublicTwo:
+    Type: AWS::EC2::Subnet::Id
+    Description: Subnet where the ALB will be deployed need to be Public two.
   SoftetherPassword:
     Description: "Password for Softether. Must be between 8 and 64 characters and contain at least one uppercase letter, one lowercase letter, one number, and one of the following symbols: .*+?-"
     Type: String
     NoEcho: true
     MinLength: 8
     MaxLength: 64
-    AllowedPattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.*+?-]).{8,64}$"
   WazuhPassword:
     Description: "Password for Wazuh. Must be between 8 and 64 characters and contain at least one uppercase letter, one lowercase letter, one number, and one of the following symbols: .*+?-"
     Type: String
     NoEcho: true
     MinLength: 8
     MaxLength: 64
-    AllowedPattern: "^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.*+?-]).{8,64}$"
     
   VPCId:
     Type: AWS::EC2::VPC::Id
@@ -81,7 +88,7 @@ Resources:
       Description: "Additional Network Interface 1"
       GroupSet:
         - !Ref SecurityGroup # Security Group ID
-      SubnetId: !Ref SubnetIdPublicSoftether # Subnet ID
+      SubnetId: !Ref SubnetIdPrivateSoftether # Subnet ID
       Tags:
         - Key: Name
           Value: "Softether"
@@ -94,12 +101,18 @@ Resources:
       ImageId: !Ref LatestAmiId
       InstanceType: !Ref EC2InstanceType
       IamInstanceProfile: !Ref SoftetherInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 50  # Size of the EBS volume (in GB)
+            Encrypted: true  # Enables encryption for the EBS volume
+            VolumeType: gp3  # General Purpose SSD
       NetworkInterfaces:
         - 
           DeviceIndex: 1
           GroupSet:
             - !Ref SecurityGroup # Security Group ID
-          SubnetId: !Ref SubnetIdPublicSoftether # Subnet ID of the primary interface
+          SubnetId: !Ref SubnetIdPrivateSoftether # Subnet ID of the primary interface
         - 
           DeviceIndex: 0
           NetworkInterfaceId: !Ref SoftetherNetworkInterface1
@@ -109,10 +122,11 @@ Resources:
           #!/bin/bash
           sudo su
           sudo yum update -y
+          yum -y install epel-release
           yum -y groupinstall "Development Tools"
           # softether version 4.43
           cd /usr/local/
-          wget https://github.com/SoftEtherVPN/SoftEtherVPN_Stable/releases/download/v4.44-9807-rtm/softether-vpnserver-v4.44-9807-rtm-2025.04.16-linux-x64-64bit.tar.gz
+          wget https://www.softether-download.com/files/softether/v4.43-9799-beta-2023.08.31-tree/Linux/SoftEther_VPN_Server/64bit_-_Intel_x64_or_AMD64/softether-vpnserver-v4.43-9799-beta-2023.08.31-linux-x64-64bit.tar.gz
           tar xvf softether-vpnserver-*
           rm -rf softether-vpnserver-*
           cd vpnserver && make
@@ -156,40 +170,34 @@ Resources:
           baseurl=https://packages.wazuh.com/4.x/yum/
           protect=1
           EOF
-          sudo WAZUH_MANAGER=$WAZUH_MANAGER WAZUH_AGENT_NAME=$WAZUH_AGENT_NAME yum install wazuh-agent -y
+          WAZUH_MANAGER="${WazuhNetworkInterface1.PrimaryPrivateIpAddress}" WAZUH_AGENT_NAME="Softether" yum install wazuh-agent -y
           sed -i '209i\
             <localfile>\
               <location>/usr/local/vpnserver/security_log/${NameBurtualHubVPN}/sec_20%y%m%d.log</location>\
               <log_format>syslog</log_format>\
             </localfile>' /var/ossec/etc/ossec.conf
-          sudo systemctl daemon-reload
-          sudo systemctl enable wazuh-agent
-          sudo systemctl start wazuh-agent
-          sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repos
+          systemctl daemon-reload
+          systemctl enable wazuh-agent
+          systemctl start wazuh-agent
+          sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repo
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"" /CMD ServerPasswordSet ${SoftetherPassword}
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB DEFAULT /CMD HubDelete DEFAULT
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD HubCreate "${NameBurtualHubVPN}" /PASSWORD:"${SoftetherPassword}"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD BridgeCreate ${NameBurtualHubVPN} /DEVICE:"eth1"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD BridgeCreate ${NameBurtualHubVPN} /DEVICE:"eth0"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatDisable
-          # --- Send cfn-signal (REPLACE 'MyWaitHandle' with your WaitHandle logical name) ---
-          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource SoftetherInstance --region ${AWS::Region}
+          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatEnable
       Tags:
         - Key: Name
           Value: Softether
-    CreationPolicy:
-        ResourceSignal:
-          Timeout: PT10M
-  EIP:
-    Type: AWS::EC2::EIP
-    Properties:
-      Domain: vpc 
-  EIPAssociation:
-    Type: AWS::EC2::EIPAssociation
-    Properties:
-      AllocationId: !GetAtt EIP.AllocationId
-      NetworkInterfaceId: !Ref SoftetherNetworkInterface1
+  #EIP:
+  #  Type: AWS::EC2::EIP
+  #  Properties:
+  #    Domain: vpc
+  #EIPAssociation:
+  #  Type: AWS::EC2::EIPAssociation
+  #  Properties:
+  #    AllocationId: !GetAtt EIP.AllocationId
+  #    NetworkInterfaceId: !Ref SoftetherNetworkInterface1
   SecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
@@ -212,6 +220,39 @@ Resources:
           FromPort: 443
           ToPort: 443
           CidrIp: 0.0.0.0/0
+  # Security Group for ALB
+  NLBSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP, HTTPS, and UDP ports 500, 4500, 1701
+      VpcId: !Ref VPCId
+      SecurityGroupIngress:
+        # Allow HTTP (TCP 80)
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        # Allow HTTPS (TCP 443)
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        # Allow UDP 500 (typically for VPN or IPsec)
+        - IpProtocol: udp
+          FromPort: 500
+          ToPort: 500
+          CidrIp: 0.0.0.0/0
+        # Allow UDP 4500 (typically for VPN or IPsec)
+        - IpProtocol: udp
+          FromPort: 4500
+          ToPort: 4500
+          CidrIp: 0.0.0.0/0
+        # Allow UDP 1701 (typically for L2TP VPN)
+        - IpProtocol: udp
+          FromPort: 1701
+          ToPort: 1701
+          CidrIp: 0.0.0.0/0
+
   InstanceSecurityGroupIngress:
     Type: 'AWS::EC2::SecurityGroupIngress'
     Properties:
@@ -253,8 +294,14 @@ Resources:
       ImageId: !Ref LatestAmiId
       InstanceType: !Ref EC2InstanceType
       IamInstanceProfile: !Ref SoftetherInstanceProfile
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 100  # Size of the EBS volume (in GB)
+            Encrypted: true  # Enables encryption for the EBS volume
+            VolumeType: gp3  # General Purpose SSD
       NetworkInterfaces:
-        - 
+        -
           DeviceIndex: 0
           NetworkInterfaceId: !Ref WazuhNetworkInterface1
 
@@ -264,7 +311,7 @@ Resources:
           sudo su
           sudo yum update -y
           sudo yum install -y aws-cfn-bootstrap
-          curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
+          curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
           /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -u admin -p ${WazuhPassword}
           yum install -y wget
           wget https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/alienvault_reputation.ipset -O /var/ossec/etc/lists/alienvault_reputation.ipset
@@ -335,19 +382,19 @@ Resources:
               <regex type="pcre2">(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d.\d\d\d\d)</regex>
               <order>timestamp</order>
           </decoder>
-          
+
           <decoder name="softether_decoder_child">
               <parent>softether_decoder</parent>
               <regex type="pcre2">IP address: (\d+\.\d+\.\d+\.\d+)</regex>
               <order>srcip</order>
           </decoder>
-          
+
           <decoder name="softether_decoder_child">
               <parent>softether_decoder</parent>
               <regex type="pcre2">User authentication failed. The user name that has been provided was "(\S+)"</regex>
               <order>srcuser</order>
           </decoder>
-          
+
           <decoder name="softether_decoder_child">
               <parent>softether_decoder</parent>
               <regex type="pcre2">Port number: (\d+)</regex>
@@ -373,7 +420,7 @@ Resources:
               <regex type="pcre2">Client OS name: "(.*?)",</regex>
               <order>os_system</order>
           </decoder>
-          
+
           <decoder name="Softether_more_child">
              <parent>Softether_more</parent>
              <regex type="pcre2">Client host name: (\S+),</regex>
@@ -421,17 +468,136 @@ Resources:
           EOF
           sed -i '331i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
           sudo systemctl restart wazuh-manager
+          sudo systemctl start wazuh-dashboard
       Tags:
         - Key: Name
           Value: Wazuh
-
-       
-      
+  # Create a Network Load Balancer
+  NLB:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: "VPNNetworkLoadBalancer"
+      Scheme: "internet-facing"
+      Type: "network"
+      Subnets:
+        - !Ref SubnetIdPublicOne
+        - !Ref SubnetIdPublicTwo
+      SecurityGroups:
+        - !Ref NLBSecurityGroup
+      LoadBalancerAttributes:
+        - Key: "deletion_protection.enabled"
+          Value: "false"
+  # 443 Target Group for NLB with TLS
+  443NLBTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: "443VPNNLBTargetGroup"
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckPort: 443
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: 443  # Target group listens on port 443 (TLS backend)
+      Protocol: TLS  # TLS protocol for communication between NLB and backend
+      VpcId: !Ref VPCId
+      Targets:
+        - Id: !Ref SoftetherInstance
+          Port: 443  # Target EC2 instance or service accepting TLS traffic
+  # 443 Listener for NLB with TLS termination
+  443NLBListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref 443NLBTargetGroup
+      LoadBalancerArn: !Ref NLB
+      Port: 443  # TLS listener on port 443
+      Protocol: TLS  # Using TLS for secure communication
+      Certificates:
+        - CertificateArn: !Ref CertificateArn  # Use parameter for ACM certificate ARN
+  # 500 Target Group for NLB with TLS
+  500NLBTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: "500VPNNLBTargetGroup"
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckPort: 443
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: 500  # Target group listens on port 553
+      Protocol: UDP  # UDP protocol for communication between NLB and backend
+      VpcId: !Ref VPCId
+      Targets:
+        - Id: !Ref SoftetherInstance
+          Port: 500  # Target EC2 instance or service accepting TLS traffic
+  # 500 Listener for NLB with TLS termination
+  500NLBListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref 500NLBTargetGroup
+      LoadBalancerArn: !Ref NLB
+      Port: 500  # TLS listener on port 443
+      Protocol: UDP  # Using TLS for secure communication
+  # 4500 Target Group for NLB with TLS
+  4500NLBTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: "4500VPNNLBTargetGroup"
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckPort: 443
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: 4500  # Target group listens on port 4500
+      Protocol: UDP  # UDP protocol for communication between NLB and backend
+      VpcId: !Ref VPCId
+      Targets:
+        - Id: !Ref SoftetherInstance
+          Port: 4500  # Target EC2 instance or service accepting TLS traffic
+  # 4500 Listener for NLB with TLS termination
+  4500NLBListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref 4500NLBTargetGroup
+      LoadBalancerArn: !Ref NLB
+      Port: 4500  # TLS listener on port 443
+      Protocol: UDP  # Using TLS for secure communication
+  # 1701 Target Group for NLB with TLS
+  1701NLBTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: "1701VPNNLBTargetGroup"
+      HealthCheckIntervalSeconds: 30
+      HealthCheckProtocol: TCP  # Use TLS for health checks
+      HealthCheckPort: 443
+      HealthCheckTimeoutSeconds: 5
+      HealthyThresholdCount: 3
+      UnhealthyThresholdCount: 3
+      Port: 1701  # Target group listens on port 4500
+      Protocol: UDP  # UDP protocol for communication between NLB and backend
+      VpcId: !Ref VPCId
+      Targets:
+        - Id: !Ref SoftetherInstance
+          Port: 1701  # Target EC2 instance or service accepting TLS traffic
+  # 4500 Listener for NLB with TLS termination
+  1701NLBListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref 1701NLBTargetGroup
+      LoadBalancerArn: !Ref NLB
+      Port: 1701  # TLS listener on port 1701
+      Protocol: UDP  # Using TLS for secure communication
 Outputs:
   URLWazuh:
     Description: Url of Wazuh
     Value: !Sub "https://${WazuhInstance.PrivateIp}"
-
-  IPSoftether:
-    Description: Ip of the VPN
-    Value: !Sub "${EIP.PublicIp}"

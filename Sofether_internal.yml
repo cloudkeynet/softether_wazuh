@@ -109,6 +109,10 @@ Resources:
           #!/bin/bash
           sudo su
           sudo yum update -y
+          # Habilitar IP Forwarding
+          echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+          sysctl -p 
+          # Continuar con la instalación de Development Tools, etc.
           yum -y groupinstall "Development Tools"
           # softether version 4.43
           cd /usr/local/
@@ -169,8 +173,7 @@ Resources:
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"" /CMD ServerPasswordSet ${SoftetherPassword}
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB DEFAULT /CMD HubDelete DEFAULT
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD HubCreate "${NameBurtualHubVPN}" /PASSWORD:"${SoftetherPassword}"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD BridgeCreate ${NameBurtualHubVPN} /DEVICE:"eth1"
+          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"         
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatEnable
           # --- Send cfn-signal (REPLACE 'MyWaitHandle' with your WaitHandle logical name) ---
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource SoftetherInstance --region ${AWS::Region}
@@ -223,7 +226,7 @@ Resources:
     Properties:
       Description: "Additional Network Interface 1"
       GroupSet:
-        - !Ref SecurityGroup # Security Group ID
+        - !Ref WazuhSecurityGroup # Security Group ID
       SubnetId: !Ref SubnetIdPrivateWazuh # Subnet ID
       Tags:
         - Key: Name
@@ -232,6 +235,7 @@ Resources:
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupDescription: Security group for Wazuh
+      VpcId: !Ref VPCId
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 1514
@@ -245,7 +249,16 @@ Resources:
           FromPort: 22
           ToPort: 22
           CidrIp: 0.0.0.0/0
-
+          # Nueva regla para ICMP (ping) desde el Grupo de Seguridad de SoftEther
+        - IpProtocol: icmp
+          FromPort: -1 # Para ICMP, FromPort es -1 o tipo de ICMP (8 para Echo Request)
+          ToPort: -1   # Para ICMP, ToPort es -1 o código de ICMP
+          SourceSecurityGroupId: !Ref SecurityGroup # Permite desde SoftEther SG
+        # Nueva regla para HTTPS (Wazuh UI) desde el Grupo de Seguridad de SoftEther
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          SourceSecurityGroupId: !Ref SecurityGroup # Permite desde SoftEther SG
   WazuhInstance:
     Type: 'AWS::EC2::Instance'
     Properties:

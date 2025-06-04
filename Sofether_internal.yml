@@ -160,7 +160,8 @@ Resources:
           baseurl=https://packages.wazuh.com/4.x/yum/
           protect=1
           EOF
-          sudo WAZUH_MANAGER=$WAZUH_MANAGER WAZUH_AGENT_NAME=$WAZUH_AGENT_NAME yum install wazuh-agent -y
+          AGENT_NAME_FOR_WAZUH="Softether-VPN-Server-Agent"
+          sudo WAZUH_MANAGER='${WazuhInstance.PrivateIp}' WAZUH_AGENT_NAME="$AGENT_NAME_FOR_WAZUH" yum install wazuh-agent -y
           sed -i '209i\
             <localfile>\
               <location>/usr/local/vpnserver/security_log/${NameBurtualHubVPN}/sec_20%y%m%d.log</location>\
@@ -169,12 +170,13 @@ Resources:
           sudo systemctl daemon-reload
           sudo systemctl enable wazuh-agent
           sudo systemctl start wazuh-agent
-          sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repos
+          sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repo
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"" /CMD ServerPasswordSet ${SoftetherPassword}
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB DEFAULT /CMD HubDelete DEFAULT
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD HubCreate "${NameBurtualHubVPN}" /PASSWORD:"${SoftetherPassword}"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"         
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatEnable
+          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD NatSet /ROUTES:10.0.3.0/255.255.255.0:192.168.30.1
           # --- Send cfn-signal (REPLACE 'MyWaitHandle' with your WaitHandle logical name) ---
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource SoftetherInstance --region ${AWS::Region}
       Tags:

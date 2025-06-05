@@ -175,7 +175,12 @@ Resources:
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD HubCreate "${NameBurtualHubVPN}" /PASSWORD:"${SoftetherPassword}"
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"         
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatEnable
-          #/usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD NatSet /ROUTES:10.0.3.0/255.255.255.0:192.168.30.1
+          if [ $? -ne 0 ]; then echo "Error habilitando SecureNat"; exit 1; fi
+          sleep 5
+
+          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD DhcpSet /START:192.168.30.10 /END:192.168.30.200 /MASK:255.255.255.0 /EXPIRE:86400 /GW:192.168.30.1 /DNS:192.168.30.1 /DNS2:8.8.8.8 /DOMAIN:none /LOG:yes /PUSHROUTE:10.0.3.0/255.255.255.0/192.168.30.1
+          if [ $? -ne 0 ]; then echo "Error configurando DhcpSet con PUSHROUTE"; exit 1; fi
+          echo "Configuración de SoftEther VPN completada."
           # --- Send cfn-signal (REPLACE 'MyWaitHandle' with your WaitHandle logical name) ---
           /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource SoftetherInstance --region ${AWS::Region}
       Tags:

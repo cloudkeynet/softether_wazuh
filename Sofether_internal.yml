@@ -271,6 +271,15 @@ Resources:
       ImageId: !Ref LatestAmiId
       InstanceType: !Ref EC2InstanceType
       IamInstanceProfile: !Ref SoftetherInstanceProfile
+      
+      BlockDeviceMappings:
+        - DeviceName: /dev/xvda
+          Ebs:
+            VolumeSize: 50
+            VolumeType: gp3
+            Iops: 3000
+            DeleteOnTermination: true
+
       NetworkInterfaces:
         - 
           DeviceIndex: 0

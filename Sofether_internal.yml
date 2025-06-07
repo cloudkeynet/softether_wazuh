@@ -163,8 +163,6 @@ Resources:
           AGENT_NAME_FOR_WAZUH="Softether-VPN-Server-Agent"
           yum install wazuh-agent -y
           sed -i "s|<address>MANAGER_IP</address>|<address>${WazuhInstance.PrivateIp}</address>|g" /var/ossec/etc/ossec.conf
-          sed -i '/<client>/,/<\/client>/ { /<name>/d; }' /var/ossec/etc/ossec.conf
-          sed -i '/<server>/i \ \ \ \ <name>Softether-VPN-Server-Agent</name>' /var/ossec/etc/ossec.conf
           sed -i '/<\/ossec_config>/i \ \ <localfile>\n\ \ \ <location>/usr/local/vpnserver/security_log/${NameBurtualHubVPN}/sec_20%y%m%d.log</location>\n\ \ \ <log_format>syslog</log_format>\n\ \ </localfile>' /var/ossec/etc/ossec.conf
           sudo systemctl daemon-reload
           sudo systemctl enable wazuh-agent
@@ -291,7 +289,7 @@ Resources:
           sudo su
           sudo yum update -y
           sudo yum install -y aws-cfn-bootstrap
-          curl -sO https://packages.wazuh.com/4.7/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
+          curl -sO https://packages.wazuh.com/4.12/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
           /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -u admin -p ${WazuhPassword}
           yum install -y wget
           wget https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/alienvault_reputation.ipset -O /var/ossec/etc/lists/alienvault_reputation.ipset

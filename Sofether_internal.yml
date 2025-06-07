@@ -448,9 +448,14 @@ Resources:
           EOF
           sed -i '331i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
           sudo systemctl restart wazuh-manager
+          INSTALL_STATUS=$?
+          /opt/aws/bin/cfn-signal -e $INSTALL_STATUS --stack ${AWS::StackName} --resource WazuhInstance --region ${AWS::Region}
       Tags:
         - Key: Name
           Value: Wazuh
+    CreationPolicy:
+        ResourceSignal:
+          Timeout: PT10M
 
        
       

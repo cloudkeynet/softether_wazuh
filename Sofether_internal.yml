@@ -292,7 +292,7 @@ Resources:
           curl -sO https://packages.wazuh.com/4.12/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
           /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -u admin -p ${WazuhPassword}
           yum install -y wget
-          wget https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/alienvault_reputation.ipset -O /var/ossec/etc/lists/alienvault_reputation.ipset
+          sudo wget https://iplists.firehol.org/files/alienvault_reputation.ipset -O /var/ossec/etc/lists/alienvault_reputation.ipset
           sudo echo "<ATTACKER_IP>" >> /var/ossec/etc/lists/alienvault_reputation.ipset
           sudo wget https://wazuh.com/resources/iplist-to-cdblist.py -O /tmp/iplist-to-cdblist.py
           sudo /var/ossec/framework/python/bin/python3 /tmp/iplist-to-cdblist.py /var/ossec/etc/lists/alienvault_reputation.ipset /var/ossec/etc/lists/blacklist-alienvault
@@ -444,7 +444,7 @@ Resources:
             </rule>
           </group>
           EOF
-          sed -i '331i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
+          sed -i '268i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
           sudo systemctl restart wazuh-manager
           INSTALL_STATUS=$?
           /opt/aws/bin/cfn-signal -e $INSTALL_STATUS --stack ${AWS::StackName} --resource WazuhInstance --region ${AWS::Region}

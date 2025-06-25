@@ -445,9 +445,6 @@ Resources:
           </group>
           EOF
           sed -i '268i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
-          CONFIG_BLOCK='  <active-response>\n    <disabled>no</disabled>\n    <command>firewall-drop</command>\n    <location>local</location>\n    <rules_id>100404</rules_id>\n    <timeout>60</timeout>\n  </active-response>'       
-          # Use ${!CONFIG_BLOCK} to prevent CloudFormation substitution error
-          sudo sed -i "s#</ossec_config>#${!CONFIG_BLOCK}\n&#" /var/ossec/etc/ossec.conf
           sudo systemctl restart wazuh-manager
           INSTALL_STATUS=$?
           /opt/aws/bin/cfn-signal -e $INSTALL_STATUS --stack ${AWS::StackName} --resource WazuhInstance --region ${AWS::Region}

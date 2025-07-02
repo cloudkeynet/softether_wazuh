@@ -484,6 +484,9 @@ Resources:
       Tags:
         - Key: Name
           Value: Wazuh
+    CreationPolicy:
+        ResourceSignal:
+          Timeout: PT10M
   # Create a Network Load Balancer
   NLB:
     Type: AWS::ElasticLoadBalancingV2::LoadBalancer

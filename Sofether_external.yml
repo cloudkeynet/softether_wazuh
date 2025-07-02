@@ -119,16 +119,19 @@ Resources:
         - DeviceIndex: 0
           NetworkInterfaceId: !Ref SoftetherNetworkInterface1
 
-      UserData: !Base64
-        Fn::Sub: |
+      UserData:
+        Fn::Base64: !Sub |
           #!/bin/bash
           sudo su
           sudo yum update -y
-          yum -y install epel-release
+          # Habilitar IP Forwarding
+          echo "net.ipv4.ip_forward = 1" >> /etc/sysctl.conf
+          sysctl -p 
+          # Continuar con la instalación de Development Tools, etc.
           yum -y groupinstall "Development Tools"
           # softether version 4.43
           cd /usr/local/
-          wget https://www.softether-download.com/files/softether/v4.43-9799-beta-2023.08.31-tree/Linux/SoftEther_VPN_Server/64bit_-_Intel_x64_or_AMD64/softether-vpnserver-v4.43-9799-beta-2023.08.31-linux-x64-64bit.tar.gz
+          wget https://github.com/SoftEtherVPN/SoftEtherVPN_Stable/releases/download/v4.44-9807-rtm/softether-vpnserver-v4.44-9807-rtm-2025.04.16-linux-x64-64bit.tar.gz
           tar xvf softether-vpnserver-*
           rm -rf softether-vpnserver-*
           cd vpnserver && make
@@ -161,7 +164,7 @@ Resources:
           EOF
           chmod 755 /etc/init.d/vpnserver
           /etc/init.d/vpnserver start
-          chkconfig --add vpnserver
+          chkconfig --add vpnserver 
           rpm --import https://packages.wazuh.com/key/GPG-KEY-WAZUH
           cat << 'EOF' > /etc/yum.repos.d/wazuh.repo
           [wazuh]
@@ -172,25 +175,33 @@ Resources:
           baseurl=https://packages.wazuh.com/4.x/yum/
           protect=1
           EOF
-          WAZUH_MANAGER="${WazuhNetworkInterface1.PrimaryPrivateIpAddress}" WAZUH_AGENT_NAME="Softether" yum install wazuh-agent -y
-          sed -i '209i\
-            <localfile>\
-              <location>/usr/local/vpnserver/security_log/${NameBurtualHubVPN}/sec_20%y%m%d.log</location>\
-              <log_format>syslog</log_format>\
-            </localfile>' /var/ossec/etc/ossec.conf
-          systemctl daemon-reload
-          systemctl enable wazuh-agent
-          systemctl start wazuh-agent
+          AGENT_NAME_FOR_WAZUH="Softether-VPN-Server-Agent"
+          yum install wazuh-agent -y
+          sed -i "s|<address>MANAGER_IP</address>|<address>${WazuhInstance.PrivateIp}</address>|g" /var/ossec/etc/ossec.conf
+          sed -i '/<\/ossec_config>/i \ \ <localfile>\n\ \ \ <location>/usr/local/vpnserver/security_log/${NameBurtualHubVPN}/sec_20%y%m%d.log</location>\n\ \ \ <log_format>syslog</log_format>\n\ \ </localfile>' /var/ossec/etc/ossec.conf
+          sudo systemctl daemon-reload
+          sudo systemctl enable wazuh-agent
+          sudo systemctl start wazuh-agent
           sed -i "s/^enabled=1/enabled=0/" /etc/yum.repos.d/wazuh.repo
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"" /CMD ServerPasswordSet ${SoftetherPassword}
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB DEFAULT /CMD HubDelete DEFAULT
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD HubCreate "${NameBurtualHubVPN}" /PASSWORD:"${SoftetherPassword}"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"
-          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /CMD BridgeCreate ${NameBurtualHubVPN} /DEVICE:"eth1"
+          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB "${NameBurtualHubVPN}" /CMD IPsecEnable /L2TP:yes /L2TPRAW:yes /ETHERIP:yes /PSK:${IPsecPreSharedKey} /DEFAULTHUB:"${NameBurtualHubVPN}"         
           /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD SecureNatEnable
+          if [ $? -ne 0 ]; then echo "Error habilitando SecureNat"; exit 1; fi
+          sleep 5
+
+          /usr/local/vpnserver/vpncmd localhost /SERVER /PASSWORD:"${SoftetherPassword}" /HUB:"${NameBurtualHubVPN}" /CMD DhcpSet /START:192.168.30.10 /END:192.168.30.200 /MASK:255.255.255.0 /EXPIRE:86400 /GW:192.168.30.1 /DNS:192.168.30.1 /DNS2:8.8.8.8 /DOMAIN:none /LOG:yes /PUSHROUTE:10.0.3.0/255.255.255.0/192.168.30.1
+          if [ $? -ne 0 ]; then echo "Error configurando DhcpSet con PUSHROUTE"; exit 1; fi
+          echo "Configuración de SoftEther VPN completada."
+          # --- Send cfn-signal (REPLACE 'MyWaitHandle' with your WaitHandle logical name) ---
+          /opt/aws/bin/cfn-signal -e $? --stack ${AWS::StackName} --resource SoftetherInstance --region ${AWS::Region}
       Tags:
         - Key: Name
           Value: Softether
+    CreationPolicy:
+        ResourceSignal:
+          Timeout: PT10M
   #EIP:
   #  Type: AWS::EC2::EIP
   #  Properties:
@@ -306,19 +317,19 @@ Resources:
         - DeviceIndex: 0
           NetworkInterfaceId: !Ref WazuhNetworkInterface1
 
-      UserData: !Base64
-        Fn::Sub: |
+      UserData:
+        Fn::Base64: !Sub |
           #!/bin/bash
           sudo su
           sudo yum update -y
           sudo yum install -y aws-cfn-bootstrap
-          curl -sO https://packages.wazuh.com/4.9/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
+          curl -sO https://packages.wazuh.com/4.12/wazuh-install.sh && sudo bash ./wazuh-install.sh -a
           /usr/share/wazuh-indexer/plugins/opensearch-security/tools/wazuh-passwords-tool.sh -u admin -p ${WazuhPassword}
           yum install -y wget
-          wget https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/alienvault_reputation.ipset -O /var/ossec/etc/lists/alienvault_reputation.ipset
+          sudo wget https://iplists.firehol.org/files/alienvault_reputation.ipset -O /var/ossec/etc/lists/alienvault_reputation.ipset
           sudo echo "<ATTACKER_IP>" >> /var/ossec/etc/lists/alienvault_reputation.ipset
           sudo wget https://wazuh.com/resources/iplist-to-cdblist.py -O /tmp/iplist-to-cdblist.py
-          /var/ossec/framework/python/bin/python3 /tmp/iplist-to-cdblist.py /var/ossec/etc/lists/alienvault_reputation.ipset /var/ossec/etc/lists/blacklist-alienvault
+          sudo /var/ossec/framework/python/bin/python3 /tmp/iplist-to-cdblist.py /var/ossec/etc/lists/alienvault_reputation.ipset /var/ossec/etc/lists/blacklist-alienvault
           chown wazuh:wazuh /var/ossec/etc/lists/blacklist-alienvault
           cat << 'EOF' > /var/ossec/etc/rules/Softether_user_access.xml
           <group name="Softether_user_access">
@@ -383,19 +394,19 @@ Resources:
               <regex type="pcre2">(\d\d\d\d-\d\d-\d\d \d\d:\d\d:\d\d.\d\d\d\d)</regex>
               <order>timestamp</order>
           </decoder>
-
+          
           <decoder name="softether_decoder_child">
               <parent>softether_decoder</parent>
               <regex type="pcre2">IP address: (\d+\.\d+\.\d+\.\d+)</regex>
               <order>srcip</order>
           </decoder>
-
+          
           <decoder name="softether_decoder_child">
               <parent>softether_decoder</parent>
               <regex type="pcre2">User authentication failed. The user name that has been provided was "(\S+)"</regex>
               <order>srcuser</order>
           </decoder>
-
+          
           <decoder name="softether_decoder_child">
               <parent>softether_decoder</parent>
               <regex type="pcre2">Port number: (\d+)</regex>
@@ -421,7 +432,7 @@ Resources:
               <regex type="pcre2">Client OS name: "(.*?)",</regex>
               <order>os_system</order>
           </decoder>
-
+          
           <decoder name="Softether_more_child">
              <parent>Softether_more</parent>
              <regex type="pcre2">Client host name: (\S+),</regex>
@@ -466,10 +477,10 @@ Resources:
               <description>Softether User authentication successful $(srcuser) with OS $(os_system) and hostname $(user_hostname)</description>
             </rule>
           </group>
-          EOF
-          sed -i '331i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
+          sed -i '268i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
           sudo systemctl restart wazuh-manager
-          sudo systemctl start wazuh-dashboard
+          INSTALL_STATUS=$?
+          /opt/aws/bin/cfn-signal -e $INSTALL_STATUS --stack ${AWS::StackName} --resource WazuhInstance --region ${AWS::Region}
       Tags:
         - Key: Name
           Value: Wazuh

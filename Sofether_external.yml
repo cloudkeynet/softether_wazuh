@@ -477,6 +477,7 @@ Resources:
               <description>Softether User authentication successful $(srcuser) with OS $(os_system) and hostname $(user_hostname)</description>
             </rule>
           </group>
+          EOF
           sed -i '268i\ \ \ \ <list>etc/lists/blacklist-alienvault</list>' /var/ossec/etc/ossec.conf
           sudo systemctl restart wazuh-manager
           INSTALL_STATUS=$?

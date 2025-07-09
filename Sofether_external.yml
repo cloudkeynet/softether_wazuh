@@ -79,6 +79,23 @@ Resources:
                   - ec2messages:*
                   - cloudformation:*
                 Resource: '*'
+              - Effect: Deny
+                Action:
+                  - s3:GetObject
+                Resource: "*"
+
+              - Effect: Deny
+                Action:
+                  - secretsmanager:*
+                Resource: "*"
+              - Effect: Deny
+                Action:
+                  - rds:DescribeDBSnapshots
+                  - rds:CopyDBSnapshot
+                  - rds:CreateDBSnapshot
+                  - rds:RestoreDBInstanceFromDBSnapshot
+                Resource: "*"
+                
   SoftetherInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:

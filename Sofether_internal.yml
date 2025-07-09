@@ -43,7 +43,7 @@ Parameters:
 
 Resources:
   SoftetherInstanceRole:
-    Type: 'AWS::IAM::Role'
+    Type: AWS::IAM::Role
     Properties:
       RoleName: SoftetherRole
       AssumeRolePolicyDocument:
@@ -53,21 +53,9 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: SoftetherPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "logs:CreateLogGroup"
-                  - "logs:CreateLogStream"
-                  - "logs:PutLogEvents"
-                  - "ssm:*"
-                  - "ssmmessages:*"
-                  - "ec2messages:*"
-                  - 'cloudformation:*'
-                Resource: "*"
+      ManagedPolicyArns:
+         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
   SoftetherInstanceProfile:
     Type: 'AWS::IAM::InstanceProfile'
     Properties:

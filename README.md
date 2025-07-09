@@ -41,7 +41,9 @@ This template requires specific configurations:
 The resources created by this template include a security group, a network interface, an elastic IP, and the Wazuh instance hosting the security platform. The IP address to access Wazuh will be displayed in the "Outputs" section of the CloudFormation Stack.
 ![Alt text]( Softether+Wazuh.png "a title")
 
-### Step 2: Deploying the SoftEther and Wazuh Template using NLB
+### Step 2.1: Deploying the SoftEther and Wazuh Template using NLB
+
+**It is mandatory to have a domain name**
 
 If you want to use an NLB and an SSL, deploy the `SoftEther_external.yml` template. This template contains the resources required to create the SoftEther VPN instance and the NLB, which acts as a secure gateway to the Wazuh instance.
 

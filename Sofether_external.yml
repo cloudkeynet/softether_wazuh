@@ -530,6 +530,7 @@ Resources:
       LoadBalancerArn: !Ref NLB
       Port: 443 # TLS listener on port 443
       Protocol: TLS # Using TLS for secure communication
+      SslPolicy: ELBSecurityPolicy-TLS13-1-2-2021-06
       Certificates:
         - CertificateArn: !Ref CertificateArn # Use parameter for ACM certificate ARN
   # 500 Target Group for NLB with TLS

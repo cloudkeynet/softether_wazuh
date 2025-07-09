@@ -39,6 +39,7 @@ This template requires specific configurations:
 * Encrypted Message
 
 The resources created by this template include a security group, a network interface, an elastic IP, and the Wazuh instance hosting the security platform. The IP address to access Wazuh will be displayed in the "Outputs" section of the CloudFormation Stack.
+![Alt text]( Softether+Wazuh.png "a title")
 
 ### Step 3: Connect to SoftEther VPN Server
 

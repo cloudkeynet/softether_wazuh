@@ -190,15 +190,6 @@ Resources:
     CreationPolicy:
         ResourceSignal:
           Timeout: PT10M
-  #EIP:
-  #  Type: AWS::EC2::EIP
-  #  Properties:
-  #    Domain: vpc
-  #EIPAssociation:
-  #  Type: AWS::EC2::EIPAssociation
-  #  Properties:
-  #    AllocationId: !GetAtt EIP.AllocationId
-  #    NetworkInterfaceId: !Ref SoftetherNetworkInterface1
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:

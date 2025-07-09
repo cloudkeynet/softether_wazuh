@@ -26,7 +26,7 @@ The repository link for the CloudFormation templates is: [https://github.com/clo
 
 The initial step involves uploading the `VPC.yml` template. This template defines your VPC and the subnets necessary for subsequent connections. It includes two public and two private subnets, from which one of each type will be used for the deployment.
 
-### Step 2: Deploying the SoftEther and Wazuh Template
+### Step 2: Deploying the SoftEther and Wazuh Template using public instance ip
 
 Next, deploy the `SoftEther_internal.yml` template. This template contains the resources required to create the SoftEther VPN instance, which acts as a secure gateway to the Wazuh instance.
 
@@ -40,6 +40,24 @@ This template requires specific configurations:
 
 The resources created by this template include a security group, a network interface, an elastic IP, and the Wazuh instance hosting the security platform. The IP address to access Wazuh will be displayed in the "Outputs" section of the CloudFormation Stack.
 ![Alt text]( Softether+Wazuh.png "a title")
+
+### Step 2: Deploying the SoftEther and Wazuh Template using NLB
+
+If you want to use an NLB and an SSL, deploy the `SoftEther_external.yml` template. This template contains the resources required to create the SoftEther VPN instance and the NLB, which acts as a secure gateway to the Wazuh instance.
+
+This template requires specific configurations:
+
+* Wazuh and SoftEther Passwords
+* NLB
+* VPC ID
+* Environment Name
+* Encrypted Message
+* Certification manager "This needs to be created before deploying the CF"
+
+The resources created by this template include a security group, an NLB, and the Wazuh instance hosting the security platform. The IP address to access Wazuh will be displayed in the "Outputs" section of the CloudFormation Stack.
+
+You will need to add the NLB record as a CNAME to the domain to use SSL.
+![Alt text]( Softether+Wazuh+NLB.png "a title")
 
 ### Step 3: Connect to SoftEther VPN Server
 

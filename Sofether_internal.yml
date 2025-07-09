@@ -249,10 +249,6 @@ Resources:
           FromPort: 1514
           ToPort: 1515
           CidrIp: 0.0.0.0/0
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: 0.0.0.0/0
           # Nueva regla para ICMP (ping) desde el Grupo de Seguridad de SoftEther
         - IpProtocol: icmp
           FromPort: -1 # Para ICMP, FromPort es -1 o tipo de ICMP (8 para Echo Request)

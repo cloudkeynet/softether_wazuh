@@ -64,38 +64,9 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
             Action: sts:AssumeRole
-      Policies:
-        - PolicyName: SoftetherPolicy
-          PolicyDocument:
-            Version: '2012-10-17'
-            Statement:
-              - Effect: Allow
-                Action:
-                  - logs:CreateLogGroup
-                  - logs:CreateLogStream
-                  - logs:PutLogEvents
-                  - ssm:*
-                  - ssmmessages:*
-                  - ec2messages:*
-                  - cloudformation:*
-                Resource: '*'
-              - Effect: Deny
-                Action:
-                  - s3:GetObject
-                Resource: "*"
-
-              - Effect: Deny
-                Action:
-                  - secretsmanager:*
-                Resource: "*"
-              - Effect: Deny
-                Action:
-                  - rds:DescribeDBSnapshots
-                  - rds:CopyDBSnapshot
-                  - rds:CreateDBSnapshot
-                  - rds:RestoreDBInstanceFromDBSnapshot
-                Resource: "*"
-                
+      ManagedPolicyArns:
+         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+      Path: /
   SoftetherInstanceProfile:
     Type: AWS::IAM::InstanceProfile
     Properties:

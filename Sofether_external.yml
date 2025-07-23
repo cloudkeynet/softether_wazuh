@@ -40,6 +40,8 @@ Parameters:
     MinLength: 8
     MaxLength: 64
   WazuhPassword:
+    Type: String
+    NoEcho: true
     Description: >
       The password for a resource. Must be between 8 and 64 characters and
       contain at least one uppercase letter, one lowercase letter, one number,

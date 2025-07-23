@@ -21,7 +21,7 @@ Parameters:
     Description: Ipsec Pre-shared Key.
   SubnetIdPrivateSoftether:
     Type: AWS::EC2::Subnet::Id
-    Description: Subnet where the Softether will be deployed need to be Public.
+    Description: Subnet where the Softether will be deployed need to be Private.
   SubnetIdPrivateWazuh:
     Type: AWS::EC2::Subnet::Id
     Description: Subnet where the Wazuh will be deployed need to be Private.

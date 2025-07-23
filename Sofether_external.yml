@@ -40,13 +40,17 @@ Parameters:
     MinLength: 8
     MaxLength: 64
   WazuhPassword:
-    Description: 'Password for Wazuh. Must be between 8 and 64 characters and
+    Description: >
+      The password for a resource. Must be between 8 and 64 characters and
       contain at least one uppercase letter, one lowercase letter, one number,
       and one of the following symbols: .*+?-'
-    Type: String
-    NoEcho: true
     MinLength: 8
     MaxLength: 64
+    AllowedPattern: '^(?=.*[a-z])(?=.*[A-Z])(?=.*[0-9])(?=.*[.*+?''-]).{8,64}$'
+    ConstraintDescription: >
+      Password must be between 8 and 64 characters and contain at least one
+      uppercase letter, one lowercase letter, one number, and one of the
+      following symbols: .*+?-'
 
   VPCId:
     Type: AWS::EC2::VPC::Id
